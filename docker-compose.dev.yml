@@ -1,0 +1,7 @@
+# Local browser access: http://localhost:8080
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+services:
+  backend:
+    environment:
+      APP_URL: http://localhost:8080
+      COOKIE_SECURE: "false"

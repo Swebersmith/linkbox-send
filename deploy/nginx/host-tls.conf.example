@@ -1,0 +1,38 @@
+# Install on the Ubuntu host at /etc/nginx/sites-available/linkbox-send.
+# Replace the domain and certificate paths. APP_URL must use this HTTPS origin.
+# Put Cloudflare Origin CA or a publicly trusted certificate in /etc/ssl/linkbox/.
+# Firewall 443 to Cloudflare's published IP ranges, or configure trusted real IPs using docs/cloudflare.md.
+server {
+    listen 80;
+    server_name send.example.com;
+    return 301 https://$host$request_uri;
+}
+server {
+    listen 443 ssl http2;
+    server_name send.example.com;
+    ssl_certificate /etc/ssl/linkbox/origin.pem;
+    ssl_certificate_key /etc/ssl/linkbox/origin.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:LinkBoxTLS:10m;
+    server_tokens off;
+    access_log off;
+    error_log /var/log/nginx/linkbox-error.log crit;
+    # Optional generated include from scripts/cloudflare-realip.sh.
+    # include /etc/nginx/snippets/cloudflare-realip.conf;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    client_max_body_size 40m;
+    client_body_timeout 1800s;
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        # Never forward a caller-supplied X-Real-IP.
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}

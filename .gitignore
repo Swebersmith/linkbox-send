@@ -1,0 +1,13 @@
+.env
+data/
+backups/
+.tools/
+frontend/node_modules/
+frontend/dist/
+backend/linkbox*
+*.log
+*.test
+playwright-report/
+test-results/
+*.tsbuildinfo
+data-before-restore-*/

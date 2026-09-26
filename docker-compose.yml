@@ -1,0 +1,86 @@
+name: linkbox-send
+services:
+  data-init:
+    image: linkbox-send-backend:local
+    build: ./backend
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - mkdir -p /data/database /data/files /data/chunks; chown 10001:10001 /data /data/database /data/files /data/chunks; chmod 700 /data /data/database /data/files /data/chunks
+    volumes:
+      - ./data:/data
+    network_mode: none
+    restart: "no"
+  backend:
+    image: linkbox-send-backend:local
+    build: ./backend
+    restart: unless-stopped
+    env_file: ${LINKBOX_ENV_FILE:-.env}
+    environment:
+      LISTEN_ADDR: :8080
+    volumes:
+      - ./data:/data
+    expose:
+      - "8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 768m
+    stop_grace_period: 45s
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [linkbox]
+  frontend:
+    image: linkbox-send-frontend:local
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NGINX_UPLOAD_BODY_SIZE: ${NGINX_UPLOAD_BODY_SIZE:-40m}
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /var/cache/nginx:size=32m
+      - /var/run:size=8m
+      - /etc/nginx/conf.d:size=8m
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      linkbox:
+        ipv4_address: 172.30.48.10
+networks:
+  linkbox:
+    ipam:
+      config:
+        - subnet: 172.30.48.0/24

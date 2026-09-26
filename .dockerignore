@@ -1,0 +1,9 @@
+.git
+.env
+.tools
+data
+backups
+frontend/node_modules
+frontend/dist
+backend/linkbox*
+test-results

@@ -1,0 +1,68 @@
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    client_max_body_size 32k;
+    client_header_timeout 15s;
+    client_body_timeout 1800s;
+    send_timeout 1800s;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" always;
+    # Trust only the local Docker gateway (host TLS Nginx). That Nginx overwrites X-Real-IP.
+    set_real_ip_from 172.30.48.1;
+    real_ip_header X-Real-IP;
+    real_ip_recursive off;
+
+    location /api/uploads {
+        # Default expansion: client_max_body_size 40m;
+        client_max_body_size ${NGINX_UPLOAD_BODY_SIZE};
+        proxy_pass http://backend:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 1800s;
+        proxy_send_timeout 1800s;
+    }
+    location /api/download/ {
+        proxy_pass http://backend:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_max_temp_file_size 0;
+    }
+    location /api/ {
+        proxy_pass http://backend:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Connection "";
+        proxy_read_timeout 60s;
+        proxy_buffering off;
+    }
+    location = /health {
+        access_log off;
+        proxy_pass http://backend:8080/health;
+    }
+    location /assets/ {
+        expires 1y;
+        access_log off;
+        try_files $uri =404;
+    }
+    location / {
+        expires -1;
+        try_files $uri $uri/ /index.html;
+    }
+}
