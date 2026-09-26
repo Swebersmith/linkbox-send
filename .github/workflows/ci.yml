@@ -3,6 +3,17 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n scripts/bootstrap.sh scripts/install.sh
+      - run: bash scripts/install.sh --help >/dev/null
+      - run: |
+          if bash scripts/install.sh --domain bad..example.com --email admin@example.com; then
+            echo 'invalid domain was accepted' >&2
+            exit 1
+          fi
   backend:
     runs-on: ubuntu-latest
     steps:

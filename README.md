@@ -4,6 +4,20 @@
 
 这份仓库包含实际前后端、数据库迁移、Docker Compose、Nginx、测试、备份和恢复脚本。所有核心接口均连接真实数据库和文件系统。Direct Upload 是后续功能，V1 不提供伪造的 direct token 接口。
 
+## Ubuntu 一行安装
+
+先将域名的 A 记录指向 VPS，首次申请证书时将 Cloudflare 记录设为 **DNS Only / 灰云**，并开放入站 TCP 80、443。在全新 Ubuntu VPS 上执行以下一行，替换域名和邮箱：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Swebersmith/linkbox-send/main/scripts/bootstrap.sh | sudo bash -s -- --domain send.example.com --email you@example.com
+```
+
+脚本从本仓库克隆到 `/opt/linkbox-send`，安装 Docker Engine、Compose、Nginx、Certbot，生成随机管理员密码与 Session Secret，构建并启动容器，申请 Let's Encrypt 证书，配置 HTTPS 和自动续期。完成时会在终端显示初始管理员密码；请立即保存。应用数据在 `/opt/linkbox-send/data`，配置在仅 root 可读的 `/opt/linkbox-send/.env`。重复运行会保留这两者，不会重置管理员密码。
+
+安装成功后访问 `https://send.example.com`（换成你的域名），把 Cloudflare DNS 改为 **Proxy ON / 橙云**，SSL/TLS 设为 **Full (strict)**。保留 80 端口供证书续期使用；Cloudflare 的挑战规则不能拦截 `/.well-known/acme-challenge/`。如果证书签发失败，检查域名解析、VPS/云防火墙和 80 端口，修复后重跑同一命令。更新和备份仍按下文流程进行。执行远程脚本前可先查看 [bootstrap.sh](scripts/bootstrap.sh) 和 [install.sh](scripts/install.sh)。
+
+无需公网部署时，可用下文的本机 Docker 快速体验方式。
+
 ## 功能
 
 - 多文件队列；默认 4 个并发分片，可选择 1 / 2 / 4 / 6 / 8；每片失败自动重试 3 次，间隔 1 / 2 / 4 秒。
@@ -46,7 +60,7 @@ SQLite 使用 WAL、`busy_timeout=10000`、外键和 `synchronous=FULL`；迁移
 
 - Ubuntu 22.04 / 24.04 LTS 或兼容系统，amd64 / arm64。
 - 建议至少 2 vCPU、2 GiB RAM；存储容量至少为最大并行上传的两倍，加已有文件和默认 2 GiB 安全预留。
-- Docker Engine + Compose plugin、Nginx、curl、OpenSSL、Python 3（恢复 / Cloudflare CIDR 校验脚本）。
+- 一行安装需要 sudo 和 apt；脚本会安装 Docker Engine + Compose plugin、Nginx、curl、OpenSSL、Certbot。手动部署需自行安装这些依赖。Python 3 用于恢复 / Cloudflare CIDR 校验脚本。
 - 一个域名和 HTTPS 证书。Cloudflare Origin CA 可用于橙云源站；仅用于源站验证，浏览器直访会不信任这种证书。
 - 对外只开放所需 SSH 和 HTTPS，后端无宿主机公开端口；应用 HTTP 端口默认只监听 127.0.0.1。
 
